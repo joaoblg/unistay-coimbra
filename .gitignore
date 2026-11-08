@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+client/node_modules/
+Servidor/node_modules/
+
+# Production builds
+dist/
+client/dist/
+
+# Environment and sensitive credentials
+.env
+Servidor/.env
+*.env.local
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
