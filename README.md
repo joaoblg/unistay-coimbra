@@ -15,10 +15,14 @@ Developed by **João Bernardo Libório Graça ([@joaoblg](https://github.com/joa
 
 ---
 
+<p align="center">
+  <img src="docs/unistay_preview.png" alt="UniStay Coimbra Interface Preview" width="100%" />
+</p>
+
 ## 🌟 Key Highlights
 
 - 📍 **Real GPS PostGIS Geodesics**: Eliminates guesswork by calculating exact walking distance and estimated walk times (`ST_Distance` over `geography(Point, 4326)`) rather than superficial estimates.
-- 🗺️ **Interactive Geovisualization**: Built with Leaflet & CARTO Voyager basemaps featuring custom Airbnb-style dynamic price badges, pulsing campus pins, and proximity radius visualization.
+- 🗺️ **Interactive Geovisualization**: Built with Leaflet & Google Maps (Roadmap, Satellite Hybrid & OpenStreetMap switcher) featuring custom Airbnb-style dynamic price badges, pulsing campus pins, and proximity radius visualization.
 - 🎯 **Campus-Centric Filtering**: Instant 1-click filtering by major Coimbra campuses:
   - **ISEC** (*Vale das Flores • Engenharia & Tecnologia*)
   - **UC Polo I** (*Alta Universitária • Letras, Direito, Ciências*)
