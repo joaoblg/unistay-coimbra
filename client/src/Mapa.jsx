@@ -1,19 +1,28 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Componente para animar a câmara suavemente para o novo centro
-function FlyToLocation({ center, zoom = 14 }) {
+// Componente para redimensionar o mapa e garantir que ocupa 100% sem áreas cinzentas
+function MapResizeAndFly({ center, zoom = 14 }) {
   const map = useMap();
+
   useEffect(() => {
+    // Força o Leaflet a recalcular o tamanho exato do ecrã
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+
     if (center && center[0] && center[1]) {
       map.flyTo(center, zoom, {
-        duration: 1.2,
+        duration: 1.0,
         easeLinearity: 0.25
       });
     }
+
+    return () => clearTimeout(timer);
   }, [center, zoom, map]);
+
   return null;
 }
 
@@ -26,12 +35,11 @@ const createUniIcon = (alias) => {
         <div class="uni-marker-pulse"></div>
         <div class="uni-marker-pin">
           <span class="uni-icon">🎓</span>
-          <span class="uni-label">${alias}</span>
         </div>
       </div>
     `,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
     popupAnchor: [0, -22]
   });
 };
@@ -46,9 +54,9 @@ const createRoomIcon = (preco, isSelected) => {
         <span class="room-currency">€</span><span class="room-val">${precoFormatado}</span>
       </div>
     `,
-    iconSize: [64, 30],
-    iconAnchor: [32, 15],
-    popupAnchor: [0, -18]
+    iconSize: [68, 32],
+    iconAnchor: [34, 16],
+    popupAnchor: [0, -20]
   });
 };
 
@@ -59,7 +67,10 @@ export default function Mapa({
   onSelectQuarto = () => {},
   raio = 2000
 }) {
-  // Centro padrão: Coimbra (Alta Universitária / Solum)
+  // Estilo de mapa: 'google-roadmap' (Google Maps normal) | 'google-hybrid' (Google Satélite) | 'osm'
+  const [tipoMapa, setTipoMapa] = useState('google-roadmap');
+
+  // Centro do mapa: Quarto selecionado -> Polo selecionado -> Centro de Coimbra
   const centro = useMemo(() => {
     if (quartoSelecionado && quartoSelecionado.lat && quartoSelecionado.lon) {
       return [parseFloat(quartoSelecionado.lat), parseFloat(quartoSelecionado.lon)];
@@ -72,20 +83,64 @@ export default function Mapa({
 
   return (
     <div className="map-wrapper">
+      {/* Seletor rápido de camada Google Maps no canto superior */}
+      <div className="map-layer-selector">
+        <button 
+          className={`layer-btn ${tipoMapa === 'google-roadmap' ? 'active' : ''}`}
+          onClick={() => setTipoMapa('google-roadmap')}
+        >
+          🗺️ Google Maps
+        </button>
+        <button 
+          className={`layer-btn ${tipoMapa === 'google-hybrid' ? 'active' : ''}`}
+          onClick={() => setTipoMapa('google-hybrid')}
+        >
+          🛰️ Google Satélite
+        </button>
+        <button 
+          className={`layer-btn ${tipoMapa === 'osm' ? 'active' : ''}`}
+          onClick={() => setTipoMapa('osm')}
+        >
+          🌐 OpenStreetMap
+        </button>
+      </div>
+
       <MapContainer 
         center={centro} 
-        zoom={uni ? 14 : 13} 
+        zoom={uni ? 15 : 14} 
         scrollWheelZoom={true}
         className="leaflet-map-container"
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-        />
+        {/* Camadas de Mapa */}
+        {tipoMapa === 'google-roadmap' && (
+          <TileLayer
+            attribution='&copy; <a href="https://maps.google.com">Google Maps</a>'
+            url="https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+            maxZoom={20}
+            subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+          />
+        )}
 
-        <FlyToLocation center={centro} zoom={quartoSelecionado ? 16 : (uni ? 14 : 13)} />
+        {tipoMapa === 'google-hybrid' && (
+          <TileLayer
+            attribution='&copy; <a href="https://maps.google.com">Google Maps Satellite</a>'
+            url="https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+            maxZoom={20}
+            subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+          />
+        )}
 
-        {/* Raio de proximidade visual em torno da faculdade */}
+        {tipoMapa === 'osm' && (
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
+          />
+        )}
+
+        <MapResizeAndFly center={centro} zoom={quartoSelecionado ? 16 : (uni ? 15 : 14)} />
+
+        {/* Raio visual geodésico em redor do Polo */}
         {uni && uni.lat && uni.lon && (
           <Circle
             center={[parseFloat(uni.lat), parseFloat(uni.lon)]}
@@ -94,13 +149,13 @@ export default function Mapa({
               color: '#3b82f6',
               fillColor: '#3b82f6',
               fillOpacity: 0.08,
-              weight: 1.5,
+              weight: 2,
               dashArray: '6, 8'
             }}
           />
         )}
 
-        {/* Marcador do Polo Universitário */}
+        {/* Marcador do Polo Académico */}
         {uni && uni.lat && uni.lon && (
           <Marker 
             position={[parseFloat(uni.lat), parseFloat(uni.lon)]}
@@ -112,7 +167,7 @@ export default function Mapa({
                 <h3>{uni.nome}</h3>
                 <p className="popup-desc">{uni.descricao || uni.alias}</p>
                 <div className="popup-coords">
-                  GPS: {parseFloat(uni.lat).toFixed(4)}, {parseFloat(uni.lon).toFixed(4)}
+                  📍 GPS: {parseFloat(uni.lat).toFixed(4)}, {parseFloat(uni.lon).toFixed(4)}
                 </div>
               </div>
             </Popup>
@@ -156,7 +211,7 @@ export default function Mapa({
                     <h4 className="popup-title">{quarto.titulo}</h4>
                     {quarto.distancia !== undefined && (
                       <div className="popup-walk">
-                        🚶 <strong>{Math.round(quarto.distancia / 80)} min</strong> a pé ({Math.round(quarto.distancia)}m da faculdade)
+                        🚶 <strong>{Math.round(quarto.distancia / 80)} min</strong> a pé ({Math.round(quarto.distancia)}m)
                       </div>
                     )}
                     <a 
@@ -165,7 +220,7 @@ export default function Mapa({
                       rel="noopener noreferrer"
                       className="popup-btn"
                     >
-                      Ver Anúncio Original ↗
+                      Ver Anúncio ↗
                     </a>
                   </div>
                 </div>

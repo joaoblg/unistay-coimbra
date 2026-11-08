@@ -37,12 +37,15 @@ body, html {
 /* Base Container */
 .main-wrapper {
   min-height: 100vh;
+  width: 100%;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
 }
 
 /* Top Navbar */
 .top-navbar {
+  width: 100%;
   background: rgba(10, 15, 29, 0.85);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
@@ -53,6 +56,7 @@ body, html {
 }
 
 .nav-container {
+  width: 100%;
   max-width: 1320px;
   margin: 0 auto;
   display: flex;
@@ -144,6 +148,7 @@ body, html {
 
 /* Hero Section */
 .hero-section {
+  width: 100%;
   max-width: 1320px;
   margin: 32px auto 20px;
   padding: 0 24px;
@@ -228,6 +233,7 @@ body, html {
 
 /* Filters Strip */
 .filters-strip {
+  width: 100%;
   max-width: 1320px;
   margin: 0 auto 24px;
   padding: 16px 24px;
@@ -328,6 +334,7 @@ body, html {
 
 /* Map Section */
 .map-section {
+  width: 100%;
   max-width: 1320px;
   margin: 0 auto 36px;
   padding: 0 24px;
@@ -363,7 +370,8 @@ body, html {
 }
 
 .map-wrapper {
-  height: 440px;
+  position: relative;
+  height: 500px;
   width: 100%;
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -371,9 +379,49 @@ body, html {
   box-shadow: var(--shadow-card);
 }
 
+.map-layer-selector {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1000;
+  display: flex;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.layer-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.layer-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.layer-btn.active {
+  background: var(--accent-blue);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+}
+
 .leaflet-map-container {
   height: 100%;
   width: 100%;
+  min-height: 500px;
+  background: #0f172a;
 }
 
 /* Custom Marker Styles */
@@ -603,6 +651,7 @@ body, html {
 
 /* Listings Section */
 .listings-section {
+  width: 100%;
   max-width: 1320px;
   margin: 0 auto;
   padding: 0 24px 60px;
