@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const { authenticateToken, requireRole } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,21 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD || 'postgres',
     port: parseInt(process.env.DB_PORT || '5432', 10),
 });
+
+// =====================
+// Rotas de Autenticação
+// =====================
+app.use('/auth', require('./routes/auth'));
+
+// =====================
+// Rotas de Favoritos
+// =====================
+app.use('/favoritos', require('./routes/favoritos'));
+
+// =====================
+// Rotas de Admin
+// =====================
+app.use('/admin', require('./routes/admin'));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -113,6 +129,7 @@ app.get('/quartos/todos', async (req, res) => {
                 slug_curto, 
                 imagem_url, 
                 link_original,
+                user_id,
                 ST_X(location::geometry) AS lon,
                 ST_Y(location::geometry) AS lat,
                 criado_em
@@ -128,8 +145,8 @@ app.get('/quartos/todos', async (req, res) => {
     }
 });
 
-// 4. Criar novo anúncio de quarto com validação PostGIS
-app.post('/quartos', async (req, res) => {
+// 4. Criar novo anúncio de quarto - requer anunciante ou admin
+app.post('/quartos', authenticateToken, requireRole('anunciante', 'admin'), async (req, res) => {
     const { 
         titulo, 
         preco, 
@@ -151,13 +168,13 @@ app.post('/quartos', async (req, res) => {
             INSERT INTO anuncios (
                 titulo, preco, tipo, despesas_incluidas, 
                 link_original, imagem_url, slug_curto, 
-                location, status
+                location, status, user_id
             )
             VALUES (
                 $1, $2, $3, $4, 
                 $5, $6, $7, 
                 ST_SetSRID(ST_MakePoint($8, $9), 4326)::geography, 
-                'ativo'
+                'ativo', $10
             )
             RETURNING 
                 id, titulo, preco, tipo, despesas_incluidas,
@@ -174,7 +191,8 @@ app.post('/quartos', async (req, res) => {
             imagem_url || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800', 
             slug, 
             parseFloat(lon), 
-            parseFloat(lat)
+            parseFloat(lat),
+            req.user.id
         ];
 
         const result = await pool.query(query, values);
@@ -185,18 +203,57 @@ app.post('/quartos', async (req, res) => {
     }
 });
 
-// 5. Apagar anúncio por ID
-app.delete('/quartos/:id', async (req, res) => {
+// 5. Apagar anúncio por ID - requer auth; anunciantes só podem apagar os seus
+app.delete('/quartos/:id', authenticateToken, requireRole('anunciante', 'admin'), async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await pool.query('DELETE FROM anuncios WHERE id = $1 RETURNING id', [id]);
-        if (result.rowCount === 0) {
+        // Verificar propriedade
+        const anuncio = await pool.query('SELECT user_id FROM anuncios WHERE id = $1', [id]);
+        if (anuncio.rows.length === 0) {
             return res.status(404).json({ error: 'Anúncio não encontrado' });
         }
+        if (req.user.role !== 'admin' && anuncio.rows[0].user_id !== req.user.id) {
+            return res.status(403).json({ error: 'Só podes apagar os teus próprios anúncios.' });
+        }
+
+        const result = await pool.query('DELETE FROM anuncios WHERE id = $1 RETURNING id', [id]);
         res.json({ message: 'Quarto removido com sucesso!', id: result.rows[0].id });
     } catch (err) {
         console.error('Erro ao apagar quarto:', err.message);
         res.status(500).json({ error: 'Erro ao apagar quarto' });
+    }
+});
+
+// 6. Editar anúncio - requer auth; anunciantes só podem editar os seus
+app.patch('/quartos/:id', authenticateToken, requireRole('anunciante', 'admin'), async (req, res) => {
+    const { id } = req.params;
+    const { titulo, preco, tipo, despesas_incluidas, imagem_url, link_original } = req.body;
+
+    try {
+        const anuncio = await pool.query('SELECT user_id FROM anuncios WHERE id = $1', [id]);
+        if (anuncio.rows.length === 0) {
+            return res.status(404).json({ error: 'Anúncio não encontrado.' });
+        }
+        if (req.user.role !== 'admin' && anuncio.rows[0].user_id !== req.user.id) {
+            return res.status(403).json({ error: 'Só podes editar os teus próprios anúncios.' });
+        }
+
+        const result = await pool.query(
+            `UPDATE anuncios SET
+                titulo = COALESCE($1, titulo),
+                preco = COALESCE($2, preco),
+                tipo = COALESCE($3, tipo),
+                despesas_incluidas = COALESCE($4, despesas_incluidas),
+                imagem_url = COALESCE($5, imagem_url),
+                link_original = COALESCE($6, link_original)
+             WHERE id = $7
+             RETURNING id, titulo, preco, tipo, despesas_incluidas, imagem_url, link_original`,
+            [titulo, preco ? parseFloat(preco) : null, tipo, despesas_incluidas, imagem_url, link_original, id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Erro ao editar quarto:', err.message);
+        res.status(500).json({ error: 'Erro ao editar quarto.' });
     }
 });
 
